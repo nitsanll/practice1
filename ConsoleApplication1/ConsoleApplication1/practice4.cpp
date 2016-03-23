@@ -148,6 +148,7 @@ VOID ErrorExit(LPSTR lpszMessage)
 
 VOID KeyEventProc(KEY_EVENT_RECORD ker)
 {
+	printf("hi");
 	const WORD up = VK_UP; 
 	const WORD down = VK_DOWN;
 	const WORD enter = VK_RETURN;
