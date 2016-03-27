@@ -6,7 +6,10 @@ HANDLE hStdin;
 HANDLE hStdout;
 DWORD fdwSaveOldMode; 
 CONSOLE_SCREEN_BUFFER_INFO cbi;
+DWORD wAttr2 = FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+DWORD wAttr3 = FOREGROUND_GREEN | FOREGROUND_INTENSITY;
 COORD c[] = { { 7, 7 },{ 7,8 },{ 7,9 },{ 7,10 } };
+string erase = "          ";
 
 VOID ErrorExit(LPSTR);
 VOID KeyEventProc(KEY_EVENT_RECORD, Combo);
@@ -14,6 +17,8 @@ VOID MouseEventProc(MOUSE_EVENT_RECORD, Combo);
 VOID ResizeEventProc(WINDOW_BUFFER_SIZE_RECORD);
 void printLines(Combo);
 void eraseLines(string, int);
+void changeTextColorDown(Combo, int);
+void changeTextColorUp(Combo, int);
 
 int main(VOID)
 {
@@ -31,19 +36,16 @@ int main(VOID)
 	// Save the current input mode, to be restored on exit. 
 
 	Combo combo;
-	//COORD c[] = { { 7, 7 },{ 7,8 },{ 7,9 }, {7,10} };
-
 	SetConsoleCursorPosition(hStdout, c[0]);
 
 	CONSOLE_CURSOR_INFO cci = { 100, FALSE };
 	SetConsoleCursorInfo(hStdout, &cci);
 
-	cout << combo.getDeafult() + " " + '\xC2' << endl;
+	SetConsoleTextAttribute(hStdout, wAttr2);
 
-	/*for (int i = 0; i < combo.getList().size(); i++) {
-	cout << combo.getList().at(i);
-	SetConsoleCursorPosition(hStdout, c[i + 1]);
-	}*/
+	cout << combo.getDeafult() + " " + 'V' << endl;
+	
+	SetConsoleCursorPosition(hStdout, c[0]);
 
 	if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
 		ErrorExit("GetConsoleMode");
@@ -54,10 +56,6 @@ int main(VOID)
 	if (!SetConsoleMode(hStdin, fdwMode))
 		ErrorExit("SetConsoleMode");
 
-	// Loop to read and handle the next 100 input events. 
-
-	
-	
 	while (counter++ != EOF)
 	{
 		// Wait for the events. 
@@ -130,33 +128,49 @@ VOID KeyEventProc(KEY_EVENT_RECORD ker, Combo combo)
 	const WORD down = VK_DOWN;
 	const WORD enter = VK_RETURN;
 	if (ker.bKeyDown) {
-		if (ker.wVirtualKeyCode == up) {}
+		if (ker.wVirtualKeyCode == up)
+		{
+			GetConsoleScreenBufferInfo(hStdout, &cbi);
+			coord = cbi.dwCursorPosition;
+			if (coord.Y == 10) {
+				changeTextColorUp(combo, 2);
+			}
+			if (coord.Y == 9) {
+				changeTextColorUp(combo, 1);
+			}
+		}
+
 		if (ker.wVirtualKeyCode == down) 
 		{ 
-			if (coord.Y == deafultLine+1)
+			if (coord.Y == deafultLine)
 			{
 				printLines(combo);
-				DWORD wAttr2 = cbi.wAttributes | BACKGROUND_BLUE | BACKGROUND_GREEN;
-				SetConsoleTextAttribute(hStdout, wAttr2);
-				SetConsoleCursorPosition(hStdout, c[1]);
-				cout << combo.getList().at(0);
-				SetConsoleCursorPosition(hStdout, c[2]);
+				changeTextColorDown(combo, 0);
 			}
 			
 			else
 			{
-					GetConsoleScreenBufferInfo(hStdout, &cbi);
-					coord = cbi.dwCursorPosition;
-					cout << coord.Y;
-					printLines(combo);
-					/*DWORD wAttr2 = cbi.wAttributes | BACKGROUND_BLUE | BACKGROUND_GREEN;
-					SetConsoleTextAttribute(hStdout, wAttr2);
-					SetConsoleCursorPosition(hStdout, coord);
-					cout << combo.getList().at(i + 1);
-				*/
+				GetConsoleScreenBufferInfo(hStdout, &cbi);
+				coord = cbi.dwCursorPosition;
+				printLines(combo);
+				if (coord.Y == 8) changeTextColorDown(combo, 1);
+				if (coord.Y == 9) changeTextColorDown(combo, 2);
+				if (coord.Y == 10) changeTextColorDown(combo, 3);
 			}
 		}
-		if (ker.wVirtualKeyCode == enter) {}
+		
+		if (ker.wVirtualKeyCode == enter ) 
+		{
+			GetConsoleScreenBufferInfo(hStdout, &cbi);
+			coord = cbi.dwCursorPosition;
+			int i = coord.Y;
+			combo.setDeafult(combo.getList().at(i-8));
+			SetConsoleCursorPosition(hStdout, { 7,7 });
+			SetConsoleTextAttribute(hStdout, wAttr2);
+			cout << combo.getDeafult() + " " + 'V' << endl;
+			eraseLines(erase, combo.getList().size());
+			SetConsoleCursorPosition(hStdout, { 7,7 });
+		}
 	}
 }
 
@@ -165,17 +179,12 @@ VOID MouseEventProc(MOUSE_EVENT_RECORD mer, Combo combo)
 #ifndef MOUSE_HWHEELED
 #define MOUSE_HWHEELED 0x0008
 #endif
-	//printf("Mouse event: ");
-
-	switch (mer.dwEventFlags)
+	if (mer.dwEventFlags == 0)
 	{
-	case 0:
-
 		if (mer.dwButtonState == FROM_LEFT_1ST_BUTTON_PRESSED)
 		{
 			int deafultLine = 7;
 			vector<string> str = combo.getList();
-			string erase = "          ";
 			if (mer.dwMousePosition.Y == deafultLine && mer.dwMousePosition.X >= 7 && mer.dwMousePosition.X <= 12)
 			{
 				printLines(combo);
@@ -186,37 +195,12 @@ VOID MouseEventProc(MOUSE_EVENT_RECORD mer, Combo combo)
 				{
 					combo.setDeafult(str.at(i));
 					SetConsoleCursorPosition(hStdout, {7,7});
-					cout << combo.getDeafult() + " " + '\xC2' << endl;
+					SetConsoleTextAttribute(hStdout, wAttr2);
+					cout << combo.getDeafult() + " " + 'V' << endl;
 					eraseLines(erase, str.size());
-
 				}
 			}
 		}
-		/*else if (mer.dwButtonState == RIGHTMOST_BUTTON_PRESSED)
-		{
-			printf("right button press \n");
-		}
-		else
-		{
-			printf("button press\n");
-		}
-		break;
-	case DOUBLE_CLICK:
-		printf("double click\n");
-		break;
-	case MOUSE_HWHEELED:
-		printf("horizontal mouse wheel\n");
-		break;
-	case MOUSE_MOVED:
-		printf("mouse moved\n");
-		break;
-	case MOUSE_WHEELED:
-		printf("vertical mouse wheel\n");
-		break;
-	default:
-		printf("unknown\n");
-		break;
-		*/
 	}
 }
 
@@ -231,7 +215,7 @@ void printLines(Combo combo)
 	COORD c[] = { { 7,8 },{ 7,9 },{ 7,10 } };
 	CONSOLE_CURSOR_INFO cci = { 100, FALSE };
 	SetConsoleCursorInfo(hStdout, &cci);
-	
+	SetConsoleTextAttribute(hStdout, wAttr2);
 	for (int i = 0; i < combo.getList().size(); i++) {
 		SetConsoleCursorPosition(hStdout, c[i]);
 		cout << combo.getList().at(i);
@@ -248,4 +232,26 @@ void eraseLines(string tmp, int size)
 		SetConsoleCursorPosition(hStdout, c1[i]);
 		cout << tmp;
 	}
+}
+
+void changeTextColorDown(Combo combo, int i)
+{
+	if (i == 3) { 
+		SetConsoleCursorPosition(hStdout, c[i]);
+		SetConsoleTextAttribute(hStdout, wAttr3);
+		cout << combo.getList().at(i-1);
+	}
+	else {
+		SetConsoleTextAttribute(hStdout, wAttr3);
+		SetConsoleCursorPosition(hStdout, c[i + 1]);
+		cout << combo.getList().at(i);
+	}
+}
+
+void changeTextColorUp(Combo combo, int i)
+{
+	printLines(combo);
+	SetConsoleTextAttribute(hStdout, wAttr3);
+	SetConsoleCursorPosition(hStdout, c[i]);
+	cout << combo.getList().at(i - 1);
 }
